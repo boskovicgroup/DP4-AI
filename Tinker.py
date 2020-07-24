@@ -24,7 +24,7 @@ def SetupTinker(settings):
 
     TinkerInputs = []
     for inpfi in settings.InputFiles:
-
+        tinker_will_fail = False 
         inpf = inpfi.split('.')[0]
 
         if settings.Rot5Cycle is True:
@@ -55,22 +55,25 @@ def SetupTinker(settings):
 
         scriptdir = getScriptPath()
         convinp = scriptdir + '/sdf2tinkerxyz-' + platform.system() + ' -k ' + scriptdir + '/default.key <'
-        outp = subprocess.check_output(convinp + inpf + '.sdf', shell=True)
+        outp = subprocess.check_output(convinp + inpf + '.sdf', stderr=subprocess.STDOUT, shell=True)
+        if 'Warning' in outp.decode('utf-8'):
+            tinker_will_fail = True
+            print("Could not prepare valid Tinker input for " + inpf + " as an unknown atom type was found. The generated structure may be impossible or this may be a bug in one or more upstream projects.")
+            
+        # Output should be empty if it succeeded -- if not, skip
+        if tinker_will_fail == False:
+            f = open(inpf + '.key', 'r+')
+            key = f.readlines()
+            key[2] = 'PARAMETERS        ' + settings.TinkerPath + 'params/mmff.prm\n'
+            f.seek(0)
+            f.writelines(key)
+            f.close()
+            TinkerInputs.append(inpf)
+            print("Tinker input for " + inpf + " prepared.")
 
-        f = open(inpf + '.key', 'r+')
-        key = f.readlines()
-        key[2] = 'PARAMETERS        ' + settings.TinkerPath + 'params/mmff.prm\n'
-        f.seek(0)
-        f.writelines(key)
-        f.close()
-
-        TinkerInputs.append(inpf)
-        print("Tinker input for " + inpf + " prepared.")
-
-        if settings.Rot5Cycle is True:
-            outp = subprocess.check_output(convinp + inpf + 'rot.sdf',
-                                           shell=True)
-            print("Tinker input for " + inpf + "rot prepared.")
+            if settings.Rot5Cycle is True:
+                outp = subprocess.check_output(convinp + inpf + 'rot.sdf', shell=True)
+                print("Tinker input for " + inpf + "rot prepared.")
 
     return TinkerInputs
 
@@ -100,7 +103,7 @@ def RunTinker(TinkerInputs, settings):
         print(cmd)
 
         output = None
-        tinker = pexpect.spawn(cmd)
+        tinker = pexpect.spawn(cmd, timeout=None)
         tinker.expect('Enter Potential Parameter File Name')
         tinker.sendline(ParamsFile)
         output = tinker.before + tinker.after
