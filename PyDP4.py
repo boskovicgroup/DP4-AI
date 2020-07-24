@@ -705,7 +705,7 @@ if __name__ == '__main__':
     with open('cmd.log', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
 
-    settings.InputFiles = args.StructureFiles
+    settings.InputFiles.append(args.StructureFiles)
 
     settings.NMRsource =  args.ExpNMR
 
